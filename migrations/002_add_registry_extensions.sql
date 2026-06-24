@@ -1,0 +1,191 @@
+-- Migration 002: add registry extension tables and vehicle identity fields
+
+ALTER TABLE vehicles
+  ADD COLUMN IF NOT EXISTS rfid_tag VARCHAR(100) DEFAULT NULL UNIQUE,
+  ADD COLUMN IF NOT EXISTS qr_code VARCHAR(100) DEFAULT NULL UNIQUE,
+  ADD COLUMN IF NOT EXISTS vehicle_status ENUM('PENDING','ACTIVE','SUSPENDED','STOLEN','DECOMMISSIONED') NOT NULL DEFAULT 'PENDING',
+  ADD COLUMN IF NOT EXISTS vehicle_variant VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS production_date DATE DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS assembly_plant VARCHAR(150) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS country_of_origin VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS country_of_manufacture VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS body_type VARCHAR(50) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS engine_capacity_cc INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS horsepower INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS torque_nm INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS seating_capacity INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS door_count INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS weight_kg DECIMAL(10,2) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS length_mm INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS width_mm INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS height_mm INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS wheelbase_mm INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS is_active TINYINT(1) DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;
+
+CREATE INDEX IF NOT EXISTS idx_vehicle_rfid ON vehicles(rfid_tag);
+CREATE INDEX IF NOT EXISTS idx_vehicle_qrcode ON vehicles(qr_code);
+CREATE INDEX IF NOT EXISTS idx_vehicle_status ON vehicles(vehicle_status);
+
+CREATE TABLE IF NOT EXISTS vehicle_accidents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  accident_date DATE NOT NULL,
+  location VARCHAR(255) DEFAULT NULL,
+  severity ENUM('MINOR','MODERATE','SEVERE','TOTAL_LOSS') DEFAULT 'MINOR',
+  report_number VARCHAR(100) DEFAULT NULL,
+  damage_summary TEXT,
+  estimated_repair_cost DECIMAL(15,2) DEFAULT 0.00,
+  insurance_claim_reference VARCHAR(150) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_accident_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS service_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  service_date DATE NOT NULL,
+  service_type VARCHAR(100) DEFAULT NULL,
+  service_center VARCHAR(150) DEFAULT NULL,
+  odometer_reading_km INT DEFAULT NULL,
+  service_cost DECIMAL(15,2) DEFAULT 0.00,
+  service_notes TEXT,
+  performed_by VARCHAR(150) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_service_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS insurance_policies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  policy_number VARCHAR(100) NOT NULL,
+  provider_name VARCHAR(150) DEFAULT NULL,
+  policy_type VARCHAR(100) DEFAULT NULL,
+  coverage_details TEXT,
+  premium_amount DECIMAL(15,2) DEFAULT 0.00,
+  start_date DATE DEFAULT NULL,
+  end_date DATE DEFAULT NULL,
+  status ENUM('ACTIVE','LAPSED','CANCELLED') DEFAULT 'ACTIVE',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_insurance_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS theft_reports (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  report_date DATE NOT NULL,
+  reported_by_owner_id INT DEFAULT NULL,
+  report_number VARCHAR(100) DEFAULT NULL,
+  police_station VARCHAR(150) DEFAULT NULL,
+  location VARCHAR(255) DEFAULT NULL,
+  status ENUM('OPEN','RECOVERED','CLOSED') DEFAULT 'OPEN',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_theft_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_theft_report_owner FOREIGN KEY (reported_by_owner_id) REFERENCES owners(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS recall_notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  recall_number VARCHAR(100) DEFAULT NULL,
+  manufacturer VARCHAR(150) DEFAULT NULL,
+  recall_date DATE NOT NULL,
+  affected_components TEXT,
+  status ENUM('OPEN','ACTIONED','CLOSED') DEFAULT 'OPEN',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_recall_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS inspection_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  inspection_date DATE NOT NULL,
+  inspector_name VARCHAR(150) DEFAULT NULL,
+  inspector_agency VARCHAR(150) DEFAULT NULL,
+  result ENUM('PASS','FAIL','CONDITIONAL') DEFAULT 'PASS',
+  remarks TEXT,
+  next_due_date DATE DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_inspection_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS modification_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  modification_date DATE NOT NULL,
+  modified_by VARCHAR(150) DEFAULT NULL,
+  description TEXT,
+  approval_reference VARCHAR(150) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_modification_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS gps_track_points (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  tracked_at DATETIME NOT NULL,
+  latitude DECIMAL(10,7) DEFAULT NULL,
+  longitude DECIMAL(10,7) DEFAULT NULL,
+  speed_kmh DECIMAL(8,2) DEFAULT NULL,
+  source VARCHAR(100) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_gps_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS import_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  import_country VARCHAR(100) DEFAULT NULL,
+  export_country VARCHAR(100) DEFAULT NULL,
+  arrival_date DATE DEFAULT NULL,
+  departure_date DATE DEFAULT NULL,
+  departure_port VARCHAR(150) DEFAULT NULL,
+  arrival_port VARCHAR(150) DEFAULT NULL,
+  bill_of_lading VARCHAR(150) DEFAULT NULL,
+  customs_cleared_by VARCHAR(150) DEFAULT NULL,
+  cleared_at DATE DEFAULT NULL,
+  remarks TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_import_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS valuation_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  valuation_date DATE NOT NULL,
+  appraised_value DECIMAL(15,2) DEFAULT 0.00,
+  appraiser_name VARCHAR(150) DEFAULT NULL,
+  appraiser_company VARCHAR(150) DEFAULT NULL,
+  valuation_method VARCHAR(150) DEFAULT NULL,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_valuation_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS vehicle_documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  document_type ENUM('REGISTRATION','INSURANCE','IMPORT','RECALL','INSPECTION','OTHER') NOT NULL,
+  document_title VARCHAR(200) DEFAULT NULL,
+  file_path VARCHAR(255) DEFAULT NULL,
+  uploaded_by INT DEFAULT NULL,
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATE DEFAULT NULL,
+  remarks TEXT,
+  CONSTRAINT fk_document_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_document_uploader FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS vehicle_photos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id INT NOT NULL,
+  photo_type ENUM('FRONT','REAR','SIDE','INTERIOR','DASHBOARD','LICENSE','OTHER') NOT NULL,
+  file_path VARCHAR(255) DEFAULT NULL,
+  caption VARCHAR(255) DEFAULT NULL,
+  uploaded_by INT DEFAULT NULL,
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_photo_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_photo_uploader FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;

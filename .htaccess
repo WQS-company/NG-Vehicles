@@ -1,0 +1,8 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Fix missing slash between project folder and routes (e.g., NG-Vehiclesauth/login -> NG-Vehicles/auth/login)
+    RewriteRule ^(.*)NG-Vehiclesauth/(.*)$ $1NG-Vehicles/auth/$2 [R=301,L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [L,QSA]
+</IfModule>
