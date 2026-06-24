@@ -1,0 +1,32 @@
+# Environment & Secrets
+config/database.php
+config/paystack.php
+.env
+
+# Composer
+vendor/
+composer.phar
+
+# Uploads (user-generated content)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Temporary / debug files
+tmp_*.php
+test_*.php
+*.log
+*.cache
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# PHP Cache
+*.php.cache
